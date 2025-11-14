@@ -38,7 +38,8 @@ function App() {
     setItems(updatedItems);
   }
 
-  function handleSaveDate() {
+  function handleSaveDate(e) {
+    e.preventDefault();
     if (!dueDate) return;
     const updatedItems = items.map((item) =>
       item.id === tempId ? { ...item, due: dueDate } : item
@@ -54,6 +55,10 @@ function App() {
     setPickingDate(false);
     setDueDate("");
     setTempId(null);
+  }
+
+  function handleDelete(id) {
+    setItems(items.filter((item) => item.id !== id));
   }
 
   return (
@@ -80,11 +85,21 @@ function App() {
         <hr className="my-4 border-t border-gray-300 w-full" />
 
         <BoxDisplay title="to do">
-          <TodoList items={items} onToggleChecked={handleToggleChecked} />
+          <TodoList
+            items={items.filter((item) => !item.checked)}
+            onToggleChecked={handleToggleChecked}
+            onDelete={handleDelete}
+          />
         </BoxDisplay>
 
+        <hr className="my-4 border-t border-gray-300 w-full" />
+
         <BoxDisplay title="completed">
-          <CompletedList />
+          <CompletedList
+            items={items.filter((item) => item.checked)}
+            onToggleChecked={handleToggleChecked}
+            onDelete={handleDelete}
+          />
         </BoxDisplay>
       </div>
     </div>
@@ -139,7 +154,7 @@ function BoxDisplay({ title, children }) {
   );
 }
 
-function TodoList({ items, onToggleChecked }) {
+function TodoList({ items, onToggleChecked, onDelete }) {
   return (
     <ul className="flex flex-col gap-3">
       {items.map((item) => (
@@ -150,38 +165,90 @@ function TodoList({ items, onToggleChecked }) {
           checked={item.checked}
           due={item.due}
           onToggleChecked={onToggleChecked}
+          onDelete={onDelete}
         />
       ))}
     </ul>
   );
 }
 
-function CompletedList() {
+function CompletedList({ items, onToggleChecked, onDelete }) {
   return (
     <ul className="flex flex-col gap-3">
-      <Item checked={true} text="Buy cat food" due="Today" />
-      <Item checked={true} text="Water the plants" due="11/10/2025" />
+      {items.map((item) => (
+        <Item
+          key={item.id}
+          id={item.id}
+          text={item.text}
+          checked={item.checked}
+          due={item.due}
+          onToggleChecked={onToggleChecked}
+          onDelete={onDelete}
+        />
+      ))}
     </ul>
   );
 }
 
-function Item({ id, text, checked, due, onToggleChecked }) {
+function Item({ id, text, checked, due, onToggleChecked, onDelete }) {
+  const [active, setActive] = useState(false);
+
+  function getDueLabel(due) {
+    if (!due) return "No due date";
+
+    const todayDate = new Date();
+    const dueDateObj = new Date(due);
+
+    const diffTime = dueDateObj - todayDate;
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) return "Do today";
+    if (diffDays === 1) return "Tomorrow";
+    if (diffDays < 0) return "Overdue";
+    if (diffDays <= 7) return `in ${diffDays} days`;
+    return due;
+  }
+
   return (
-    <li className="flex items-center gap-2 py-2 px-4 rounded shadow shadow-gray-400/50 ">
-      <input
-        key={id}
-        checked={!!checked}
-        onChange={() => onToggleChecked(id)}
-        type="checkbox"
-        className="appearance-none w-6 h-6 rounded-full border border-gray-400 checked:bg-green-300 checked:border-green-300 cursor-pointer checked:after:content-['✓'] checked:after:text-green-900 checked:after:flex checked:after:items-center checked:after:justify-center checked:after:h-full checked:after:w-full"
-      />{" "}
-      <span className={`${checked ? "line-through text-gray-400" : ""}`}>
-        {text}
-      </span>
-      <span className="text-gray-500 flex text-sm items-center gap-1 ml-auto">
-        <CalendarDays /> Due: {due || "No due date"}
-      </span>
-    </li>
+    <>
+      <li
+        onClick={() => setActive((open) => !open)}
+        className="flex flex-col  bg-neutral-50 items-center gap-2 px-4 py-2 rounded shadow shadow-gray-400/50 z-1 "
+      >
+        <div className="flex w-full items-center gap-2">
+          {" "}
+          <input
+            key={id}
+            checked={!!checked}
+            onChange={(e) => {
+              e.stopPropagation();
+              onToggleChecked(id);
+            }}
+            type="checkbox"
+            className="appearance-none w-6 h-6 rounded-full border border-gray-400 checked:bg-green-300 checked:border-green-300 cursor-pointer checked:after:content-['✓'] checked:after:text-green-900 checked:after:flex checked:after:items-center checked:after:justify-center checked:after:h-full checked:after:w-full"
+          />{" "}
+          <span className={`${checked ? "line-through text-gray-400" : ""}`}>
+            {text}
+          </span>
+          <span className="text-gray-500 flex text-sm items-center gap-1 ml-auto">
+            <CalendarDays /> Due: {getDueLabel(due)}
+          </span>
+        </div>
+        {active && (
+          <div className="flex w-full justify-end mt-2 gap-2">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(id);
+              }}
+              className="bg-sky-500 text-white w-1/4 py-1 rounded hover:bg-sky-600 transition-colors"
+            >
+              Delete
+            </button>
+          </div>
+        )}
+      </li>
+    </>
   );
 }
 
@@ -195,9 +262,13 @@ function PickingDate({
   return (
     <>
       {pickingDate && (
-        <div className="w-full h-screen fixed top-0 left-0 bg-black/30 flex justify-center items-center ">
+        <form
+          onSubmit={handleSaveDate}
+          className="z-99 w-full h-screen fixed top-0 left-0 bg-black/30 flex justify-center items-center "
+        >
           <div className="bg-white p-6 rounded-lg flex flex-col gap-4">
             <input
+              autoFocus
               type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
@@ -205,20 +276,20 @@ function PickingDate({
             />
             <div className="flex justify-between gap-2">
               <button
-                onClick={handleSaveDate}
+                type="submit"
                 className="bg-sky-600 text-white w-1/2 py-2 rounded-lg hover:bg-sky-700 transition-colors"
               >
                 OK
               </button>
               <button
                 onClick={handleCancelDate}
-                className="bg-red-600 text-white w-1/2   py-2 rounded-lg hover:bg-red-700 transition-colors"
+                className="bg-red-600 text-white w-1/2 py-2 rounded-lg hover:bg-red-700 transition-colors"
               >
                 Cancel
               </button>
             </div>
           </div>
-        </div>
+        </form>
       )}
     </>
   );

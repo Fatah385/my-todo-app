@@ -12,6 +12,11 @@ function App() {
   /* remembers which item needs a due date */
   const [tempId, setTempId] = useState(null);
 
+  const [editing, setEditing] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [editText, setEditText] = useState("");
+  const [editDue, setEditDue] = useState("");
+
   useEffect(() => {
     console.log("Items updated:", items);
   }, [items]);
@@ -61,6 +66,32 @@ function App() {
     setItems(items.filter((item) => item.id !== id));
   }
 
+  function handleOpenEdit(item) {
+    setEditing(true);
+    setEditId(item.id);
+    setEditText(item.text);
+    setEditDue(item.due) || "";
+  }
+
+  function handleSaveEdit() {
+    const updated = items.map((item) =>
+      item.id === editId ? { ...item, text: editText, due: editDue } : item
+    );
+    setItems(updated);
+
+    setEditing(false);
+    setEditId(null);
+    setEditText("");
+    setEditDue("");
+  }
+
+  function handleCancelEdit() {
+    setEditing(false);
+    setEditId(null);
+    setEditText("");
+    setEditDue("");
+  }
+
   return (
     <div className="container-layout w-full h-screen flex justify-center items-start pt-12">
       <div className="container max-w-96 h-[90%] bg-white rounded-lg shadow-md p-4 overflow-y-scroll scrollbar-hide">
@@ -82,6 +113,16 @@ function App() {
           handleCancelDate={handleCancelDate}
         />
 
+        <EditPopup
+          editing={editing}
+          onSaveEdit={handleSaveEdit}
+          onCencelEdit={handleCancelEdit}
+          editText={editText}
+          setEditText={setEditText}
+          editDue={editDue}
+          setEditDue={setDueDate}
+        />
+
         <hr className="my-4 border-t border-gray-300 w-full" />
 
         <BoxDisplay title="to do">
@@ -89,6 +130,7 @@ function App() {
             items={items.filter((item) => !item.checked)}
             onToggleChecked={handleToggleChecked}
             onDelete={handleDelete}
+            onOpenEdit={handleOpenEdit}
           />
         </BoxDisplay>
 
@@ -99,6 +141,7 @@ function App() {
             items={items.filter((item) => item.checked)}
             onToggleChecked={handleToggleChecked}
             onDelete={handleDelete}
+            onOpenEdit={handleOpenEdit}
           />
         </BoxDisplay>
       </div>
@@ -154,7 +197,7 @@ function BoxDisplay({ title, children }) {
   );
 }
 
-function TodoList({ items, onToggleChecked, onDelete }) {
+function TodoList({ items, onToggleChecked, onDelete, onOpenEdit }) {
   return (
     <ul className="flex flex-col gap-3">
       {items.map((item) => (
@@ -166,13 +209,14 @@ function TodoList({ items, onToggleChecked, onDelete }) {
           due={item.due}
           onToggleChecked={onToggleChecked}
           onDelete={onDelete}
+          onOpenEdit={onOpenEdit}
         />
       ))}
     </ul>
   );
 }
 
-function CompletedList({ items, onToggleChecked, onDelete }) {
+function CompletedList({ items, onToggleChecked, onDelete, onOpenEdit }) {
   return (
     <ul className="flex flex-col gap-3">
       {items.map((item) => (
@@ -184,13 +228,22 @@ function CompletedList({ items, onToggleChecked, onDelete }) {
           due={item.due}
           onToggleChecked={onToggleChecked}
           onDelete={onDelete}
+          onOpenEdit={onOpenEdit}
         />
       ))}
     </ul>
   );
 }
 
-function Item({ id, text, checked, due, onToggleChecked, onDelete }) {
+function Item({
+  id,
+  text,
+  checked,
+  due,
+  onToggleChecked,
+  onDelete,
+  onOpenEdit,
+}) {
   const [active, setActive] = useState(false);
 
   function getDueLabel(due) {
@@ -236,6 +289,14 @@ function Item({ id, text, checked, due, onToggleChecked, onDelete }) {
         </div>
         {active && (
           <div className="flex w-full justify-end mt-2 gap-2">
+            {!checked && (
+              <button
+                onClick={() => onOpenEdit({ id, text, due })}
+                className="bg-sky-500 text-white w-1/4 py-1 rounded hover:bg-sky-600 transition-colors"
+              >
+                Edit
+              </button>
+            )}
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -283,6 +344,66 @@ function PickingDate({
               </button>
               <button
                 onClick={handleCancelDate}
+                className="bg-red-600 text-white w-1/2 py-2 rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </form>
+      )}
+    </>
+  );
+}
+
+function EditPopup({
+  editing,
+  onSaveEdit,
+  onCencelEdit,
+  editText,
+  setEditText,
+  editDue,
+  setEditDue,
+}) {
+  return (
+    <>
+      {editing && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            onSaveEdit();
+          }}
+          className="z-99 w-full h-screen fixed top-0 left-0 bg-black/30 flex justify-center items-center "
+        >
+          <div className="bg-white p-6 rounded-lg flex flex-col gap-4">
+            {/* Text */}
+            <input
+              autoFocus
+              type="text"
+              value={editText}
+              onChange={(e) => setEditText(e.target.value)}
+              className="text-md px-4 py-2 shadow-md rounded-lg border border-gray-300"
+            />
+
+            {/* Due Date */}
+            <input
+              type="date"
+              value={editDue}
+              onChange={(e) => setEditDue(e.target.value)}
+              className="text-md px-4 py-2 shadow-md rounded-lg border border-gray-300"
+            />
+
+            {/* Buttons */}
+            <div className="flex justify-between gap-2">
+              <button
+                type="submit"
+                className="bg-sky-600 text-white w-1/2 py-2 rounded-lg hover:bg-sky-700 transition-colors"
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                onClick={onCencelEdit}
                 className="bg-red-600 text-white w-1/2 py-2 rounded-lg hover:bg-red-700 transition-colors"
               >
                 Cancel
